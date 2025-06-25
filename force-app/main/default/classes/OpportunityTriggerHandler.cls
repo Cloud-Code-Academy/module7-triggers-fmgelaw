@@ -7,8 +7,8 @@ public with sharing class OpportunityTriggerHandler {
     * Trigger should only fire on update.
     */
     public static void amountValidation(List<Opportunity> opps) {
-        for(Opportunity opp: opps) {
-            if(!(opp.Amount > 5000)) {
+        for (Opportunity opp: opps) {
+            if (opp.Amount <= 5000) {
                 opp.addError('Opportunity amount must be greater than 5000');
             }
         }
@@ -24,15 +24,15 @@ public with sharing class OpportunityTriggerHandler {
     public static void deleteCloseWonOpportunity(List<Opportunity> opps) {
 
         Set<Id> accIds = new Set<Id>();
-        for(Opportunity opp: opps) {
+        for (Opportunity opp: opps) {
             if (opp.StageName == 'Closed Won') {
                 accIds.add(opp.AccountId);
             }
         }
 
         Map<Id, Account> accIdToaccMap = new  Map<Id, Account>([SELECT Id, industry FROM Account WHERE Id IN :accIds]);
-        for(Opportunity opp: opps) {
-            if(opp.StageName == 'Closed Won' && accIdToaccMap.containsKey(opp.AccountId) && accIdToaccMap.get(opp.AccountId).Industry == 'Banking') {
+        for (Opportunity opp: opps) {
+            if (accIdToaccMap.containsKey(opp.AccountId) && accIdToaccMap.get(opp.AccountId).Industry == 'Banking') {
                 opp.addError('Cannot delete closed opportunity for a banking account that is won');
             }
         }
@@ -46,21 +46,26 @@ public with sharing class OpportunityTriggerHandler {
     */
     public static void setPrimaryContact(List<Opportunity> opps) {
         Set<Id> acctIds = new Set<Id>();
-        for(Opportunity opp : opps){
-            if(opp.AccountId != null){
+        for (Opportunity opp : opps) {
+            if (opp.AccountId != null) {
                 acctIds.add(opp.AccountId);
             }
         }
-        Map<id, Contact> accIdToContactMap = new  Map<id, Contact>();
-        List<Contact> acctContactsList = [SELECT id, AccountId, Name, Title FROM Contact WHERE AccountId IN :acctIds];
+        Map<Id, Contact> accIdToContactMap = new  Map<Id, Contact>();
+        List<Contact> acctContactsList = [
+            SELECT id, AccountId, Name, Title 
+            FROM Contact 
+            WHERE AccountId IN :acctIds
+            AND Title = 'CEO'
+            ORDER BY FirstName ASC];
 
-        for(Contact con : acctContactsList){
-            if(con.Title == 'CEO' && !accIdToContactMap.containsKey(con.AccountId)){
+        for (Contact con : acctContactsList){
+            if (!accIdToContactMap.containsKey(con.AccountId)) {
                 accIdToContactMap.put(con.AccountId, con);
             }
         }
-        for(Opportunity opp : opps){
-            if(accIdToContactMap.containsKey(opp.AccountId)){
+        for (Opportunity opp : opps){
+            if (accIdToContactMap.containsKey(opp.AccountId)) {
                 opp.Primary_Contact__c = accIdToContactMap.get(opp.AccountId).Id;
             }
         }
